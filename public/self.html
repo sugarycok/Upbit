@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 업비트 대시보드</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        h1 {
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #fafafa;
+            margin: 10px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        li:nth-child(odd) {
+            background: #f0f0f0;
+        }
+        .navbar {
+            background-color: #333;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 20px;
+        }
+        .navbar a {
+            float: left;
+            display: block;
+            color: #f2f2f2;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+        .navbar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+        .message {
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .date-inputs {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .date-inputs label {
+            margin-right: 10px;
+        }
+        .date-inputs input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .deposits-withdrawals {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .deposits-withdrawals li {
+            flex: 1 1 calc(50% - 20px);
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="index.html">코인 가격</a>
+        <a href="self.html">내 업비트 대시보드</a>
+    </div>
+    <div class="container">
+        <h1>내 업비트 대시보드</h1>
+        
+        <div class="date-inputs">
+            <div>
+                <label for="from-date">시작 날짜:</label>
+                <input type="date" id="from-date" value="">
+            </div>
+            <div>
+                <label for="to-date">종료 날짜:</label>
+                <input type="date" id="to-date" value="">
+            </div>
+            <button onclick="fetchData()">조회</button>
+        </div>
+        
+        <h2>입출금 현황</h2>
+        <ul id="depositsWithdrawals" class="deposits-withdrawals"></ul>
+        <div id="depositsWithdrawalsMessage" class="message"></div>
+
+        <h2>거래 내역</h2>
+        <ul id="transactions"></ul>
+        <div id="transactionsMessage" class="message"></div>
+
+        <h2>자산 현황</h2>
+        <ul id="assets"></ul>
+        <div id="assetsMessage" class="message"></div>
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                const fromDateInput = document.getElementById('from-date');
+                const toDateInput = document.getElementById('to-date');
+                const fromDate = fromDateInput.value || new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
+                const toDate = toDateInput.value || new Date().toISOString().split('T')[0];
+
+                console.log(`Fetching data from ${fromDate} to ${toDate}`);
+                const response = await fetch(`http://localhost:5000/api/profile_data?from=${fromDate}&to=${toDate}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+
+                const depositsWithdrawalsList = document.getElementById('depositsWithdrawals');
+                const depositsWithdrawalsMessage = document.getElementById('depositsWithdrawalsMessage');
+                depositsWithdrawalsList.innerHTML = '';
+                if (data.deposits_withdrawals.length > 0) {
+                    data.deposits_withdrawals.forEach(item => {
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `
+                            <strong>유형:</strong> ${item.type === 'deposit' ? '입금' : '출금'} <br>
+                            <strong>금액:</strong> ${item.amount} ${item.currency} <br>
+                            <strong>날짜:</strong> ${new Date(item.created_at).toLocaleString()} <br>
+                            <strong>상태:</strong> ${item.state} <br>
+                            <strong>거래 ID:</strong> ${item.txid}
+                        `;
+                        depositsWithdrawalsList.appendChild(listItem);
+                    });
+                    depositsWithdrawalsMessage.textContent = '';
+                } else {
+                    depositsWithdrawalsMessage.textContent = '최근 1주일 동안 입출금 내역이 없습니다. 나중에 다시 확인해 주세요.';
+                }
+
+                const transactionsList = document.getElementById('transactions');
+                const transactionsMessage = document.getElementById('transactionsMessage');
+                transactionsList.innerHTML = '';
+                if (data.transactions.length > 0) {
+                    data.transactions.forEach(item => {
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `
+                            <strong>매입금액:</strong> ${item.purchase_amount} <br>
+                            <strong>매도금액:</strong> ${item.sale_amount} <br>
+                            <strong>수수료:</strong> ${item.fee} <br>
+                            <strong>거래차액:</strong> ${item.profit_loss} <br>
+                            <strong>수익률:</strong> ${item.profit_rate}%
+                        `;
+                        transactionsList.appendChild(listItem);
+                    });
+                    transactionsMessage.textContent = '';
+                } else {
+                    transactionsMessage.textContent = '최근 1주일 동안 거래 내역이 없습니다. 나중에 다시 확인해 주세요.';
+                }
+
+                const assetsList = document.getElementById('assets');
+                const assetsMessage = document.getElementById('assetsMessage');
+                assetsList.innerHTML = '';
+                if (data.assets.length > 0) {
+                    data.assets.forEach(asset => {
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `
+                            <div>
+                                <strong>${asset.currency}:</strong>
+                                <ul>
+                                    <li>평가금액: ${asset.balance} ${asset.currency}</li>
+                                    <li>평균 매수 금액: ${asset.avg_buy_price}</li>
+                                    <li>총 매수 금액: ${asset.balance * asset.avg_buy_price}</li>
+                                </ul>
+                            </div>
+                        `;
+                        assetsList.appendChild(listItem);
+                    });
+                    assetsMessage.textContent = '';
+                } else {
+                    assetsMessage.textContent = '보유한 코인이 없습니다.';
+                }
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        window.onload = function() {
+            const fromDateInput = document.getElementById('from-date');
+            const toDateInput = document.getElementById('to-date');
+            fromDateInput.value = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
+            toDateInput.value = new Date().toISOString().split('T')[0];
+            fetchData();
+        };
+    </script>
+</body>
+</html>
