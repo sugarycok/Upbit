@@ -143,6 +143,19 @@ def run_stock_prediction(stock_code):
 
     future_predictions_inverse = np.array(future_predictions) * (scaler.data_max_[3] - scaler.data_min_[3]) + scaler.data_min_[3]
 
+    # Calculate standard deviation
+    std_dev = np.std(future_predictions_inverse)
+    mean_pred = np.mean(future_predictions_inverse)
+
+    # Logging for debugging
+    print("Future predictions (before filtering):", future_predictions_inverse)
+    print("Mean prediction:", mean_pred)
+    print("Standard deviation:", std_dev)
+
+    # Filter predictions within 1.5 standard deviations
+    filtered_predictions = [pred for pred in future_predictions_inverse if mean_pred - 1.5 * std_dev <= pred <= mean_pred + 1.5 * std_dev]
+    print("Filtered predictions (within 1.5 standard deviations):", filtered_predictions)
+
     mape = np.sum(abs(y_test_inverse - pred_inverse) / y_test_inverse) / len(x_test)
     print("MAPE:", mape)
 
@@ -156,7 +169,7 @@ def run_stock_prediction(stock_code):
     plt.plot(date_range, y_test_inverse, label='actual')
     plt.plot(date_range, pred_inverse, label='prediction')
 
-    plt.plot(future_dates, future_predictions_inverse, label='future prediction')
+    plt.plot(future_dates[:len(filtered_predictions)], filtered_predictions, label='future prediction')
 
     plt.grid()
     plt.legend(loc='best')
@@ -167,11 +180,11 @@ def run_stock_prediction(stock_code):
     plt.close()
 
     future_predictions_df = pd.DataFrame({
-        'Date': future_dates,
-        'Predicted_Close': future_predictions_inverse
+        'Date': future_dates[:len(filtered_predictions)],
+        'Predicted_Close': filtered_predictions
     })
 
     return plot_file_name, future_predictions_df
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)  # 포트를 5001로 수정
+    app.run(debug=True, port=5001)

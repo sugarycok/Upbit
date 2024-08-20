@@ -263,7 +263,7 @@ app.post('/start', (req, res) => {
     console.log('Received data - 티커:', ticker, '소켓 ID:', sid);
     const options = {
         hostname: 'localhost', // Flask 서버가 실행 중인 호스트
-        port: 5000, // Flask 서버가 실행 중인 포트
+        port: 5002, // Flask 서버가 실행 중인 포트
         path: '/start',
         method: 'POST',
         headers: {

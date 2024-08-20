@@ -100,6 +100,18 @@
         .status-message {
             white-space: pre-line;
         }
+
+        .chart-container {
+            margin-top: 20px;
+            text-align: center;
+            width: 100%;
+            height: 500px; /* 차트 높이 증가 */
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 100%;
+        }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
@@ -133,12 +145,17 @@
         <div id="statusUpdates">
             <ul id="statusList"></ul>
         </div>
+        <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
     </div>
 
     <!-- Socket.IO library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
-        const socket = io('http://localhost:5002');  // auto.py의 포트로 수정
+        const socket = io('http://localhost:5002');
 
         socket.on('connect', () => {
             console.log('서버에 연결되었습니다.');
@@ -162,10 +179,10 @@
             $('#startForm').submit((event) => {
                 event.preventDefault();
                 const ticker = $('#ticker').val();
-                const sid = socket.id; // 클라이언트의 소켓 ID 가져오기
-                console.log('Socket ID:', sid); // 추가된 로그
+                const sid = socket.id;
+                console.log('Socket ID:', sid);
                 $.ajax({
-                    url: 'http://localhost:5002/start',  // auto.py의 포트로 수정
+                    url: 'http://localhost:5002/start',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ ticker: ticker, sid: sid }),
@@ -178,6 +195,96 @@
                         statusUpdates.scrollTop = statusUpdates.scrollHeight;
                     }
                 });
+            });
+
+            // Chart.js 초기화
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            const priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Current Price',
+                            borderColor: 'blue',
+                            backgroundColor: 'blue', // 배경색 추가
+                            data: [],
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2,
+                            pointRadius: 3,  // 포인트 표시 및 크기 조정
+                        },
+                        {
+                            label: 'Target Price',
+                            borderColor: 'red',
+                            data: [],
+                            fill: false,
+                            tension: 0.1,
+                            borderWidth: 2,
+                            pointRadius: 0  // 포인트 숨기기
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'll HH:mm',
+                                displayFormats: {
+                                    minute: 'HH:mm'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Price'
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 500,
+                        easing: 'linear'
+                    }
+                }
+            });
+
+            const MAX_DATA_POINTS = 50; // 최대 데이터 포인트 수
+
+            let lastUpdateTime = 0;
+
+            // 실시간 데이터 업데이트
+            function updateChart(data) {
+                const currentPrice = data.current_price;
+                const targetPrice = data.target_price;
+                const time = new Date(data.time);
+
+                // 1분마다 데이터 업데이트
+                if (time - lastUpdateTime >= 60000) {
+                    lastUpdateTime = time;
+
+                    if (priceChart.data.labels.length > MAX_DATA_POINTS) {
+                        priceChart.data.labels.shift();
+                        priceChart.data.datasets[0].data.shift();
+                        priceChart.data.datasets[1].data.shift();
+                    }
+
+                    priceChart.data.labels.push(time);
+                    priceChart.data.datasets[0].data.push(currentPrice);
+                    priceChart.data.datasets[1].data.push(targetPrice);
+
+                    priceChart.update();
+                }
+            }
+
+            socket.on('price_update', (data) => {
+                updateChart(data);
             });
         });
     </script>
